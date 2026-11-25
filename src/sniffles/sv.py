@@ -333,17 +333,13 @@ class SVGroup:
               (total_count / samples_count >= config.combine_low_confidence and
                total_count >= config.combine_low_confidence_abs))
 
-        if not qc:
-            if config.no_qc and n_samples == 1:
-                pass
-            else:
-                return None
+        # --no-qc/--qc-output-all: output all groups, also for more than one sample
+        if not qc and not config.no_qc:
+            return None
 
-        if not config.combine_output_filtered and not any(cand.qc and cand.filter == "PASS" for cand in self.candidates):
-            if config.no_qc and n_samples == 1:
-                pass
-            else:
-                return None
+        any_pass = any(cand.qc and cand.filter == "PASS" for cand in self.candidates)
+        if not config.combine_output_filtered and not any_pass and not config.no_qc:
+            return None
 
         # always save read names, just drop then when reporting, needed for local assembly
         rnames = []  # if config.output_rnames else None
@@ -442,7 +438,11 @@ class SVGroup:
                         ref="N",
                         alt=svcall_alt,
                         qual=util.mean_or_none_round(int(cand.qual) for cand in self.candidates if cand.qual is not None),
-                        filter="PASS" if n_samples != 1 else first_cand.filter,
+                        # a group without any passing candidate (--combine-output-filtered / --no-qc) keeps the
+                        # filter of its candidates instead of PASS
+                        filter=(first_cand.filter if n_samples == 1 else
+                                "PASS" if any_pass else
+                                util.most_common_top([cand.filter for cand in self.candidates])),
                         info=dict() if n_samples != 1 else first_cand.info,
                         svtype=first_cand.svtype,
                         svlen=svcall_svlen if config.dev_combine_medians else first_cand.svlen,
