@@ -80,7 +80,9 @@ class Lead:
         for sa in read.get_tag("SA").split(";"):
             if len(sa) > 0:
                 refname, pos, strand, cigar, mapq, nm = sa.split(",")
-                if read_strand == strand:  # fall back to legacy break analysis
+                if read_strand == strand and refname == read.reference_name:
+                    # same contig and strand: DEL/INS/DUP, handled by read_itersplits/classify_splits.
+                    # Equal strands on different contigs are a translocation, which only this function reports.
                     return None
 
                 pos_org = pos
