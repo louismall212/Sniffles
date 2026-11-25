@@ -36,7 +36,7 @@ def annotate_sv(svcall: SVCall, config, task: 'Task'):
     genotype_sv(svcall, config, phase, task)
 
     if svcall.svtype == "INS" and not config.symbolic:
-        merged_leads = [lead for lead in svcall.postprocess.cluster.leads if lead.seq is not None]
+        merged_leads = [lead for lead in svcall.postprocess.cluster.leads if lead.seq]  # skip None and empty sequences
 
         if len(merged_leads):
             best_lead = merged_leads[0]
@@ -220,19 +220,19 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             else:
                 svcall.filter = "STDEV_POS"
                 return False
-        if svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT") and stdev_pos / abs(svcall.svlen) > 2.0:
+        if svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT") and svcall.svlen and stdev_pos / abs(svcall.svlen) > 2.0:
             if config.dev_filter:
                 dev_sv_filter.append("STDEV_POS")
             else:
                 svcall.filter = "STDEV_POS"
-        if svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT") and stdev_pos / abs(svcall.svlen) > 2.0:
+        if svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT") and svcall.svlen and stdev_pos / abs(svcall.svlen) > 2.0:
             svcall.filter = f'{svcall.filter};STDEV_POS' if config.dev_filter else "STDEV_POS"
             if not config.dev_filter:
                 return False
 
         stdev_len = svcall.get_info("STDEV_LEN")
         if stdev_len is not None and stdev_len != 0:
-            if svcall.svtype != "BND" and stdev_len / abs(svcall.svlen) > 1.0:
+            if svcall.svtype != "BND" and svcall.svlen and stdev_len / abs(svcall.svlen) > 1.0:
                 if config.dev_filter:
                     dev_sv_filter.append("STDEV_LEN")
                 else:
@@ -510,7 +510,7 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
         max_stdev_pos_difference = 5
         # so SINGLE_BREAK types SINGLE_RIGHT and SINGLE_LEFT break this part as they do not have an associated svlen
         if stdev_pos is not None and stdev_len is not None and svcall.svtype in ACCEPTED_SVTYPES:
-            filter_low_supp = ((not svcall.precise or stdev_len/abs(svcall.svlen) > max_stdev_to_svlen_ratio or
+            filter_low_supp = ((not svcall.precise or (svcall.svlen and stdev_len/abs(svcall.svlen) > max_stdev_to_svlen_ratio) or
                                 stdev_pos > max_stdev_pos_difference) and abs(svlen) <= config.max_svlen_mosaic)
             min_mosaic_support = config.mosaic_min_reads if (svcall.svtype in ["BND", "INV"] or filter_low_supp) \
                 else config.mosaic_min_reads-1
