@@ -136,6 +136,23 @@ class Lead:
 
 
 
+def cigar_clips(cigartuples) -> tuple[int, int]:
+    """
+    Soft + hard clipped bases at the start and end of an alignment (in reference orientation)
+    """
+    clip_start = 0
+    for op, oplen in cigartuples:
+        if op not in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
+            break
+        clip_start += oplen
+    clip_end = 0
+    for op, oplen in reversed(cigartuples):
+        if op not in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
+            break
+        clip_end += oplen
+    return clip_start, clip_end
+
+
 def CIGAR_analyze(cigar) -> tuple[int, int, int, int]:
     """
     Analyze CIGAR string to determine clips on start/end
@@ -228,16 +245,17 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps) -
     supps = [part.split(",") for part in read.get_tag("SA").split(";") if len(part) > 0]
     trace_read = config.dev_trace_read and read.query_name in config.dev_trace_read
 
-    if len(supps) > config.max_splits_base + config.max_splits_kb * (read.query_length / 1000.0):
+    # Use the full read length and clips from the CIGAR: query_length/query_alignment_start do not include hard
+    # clipped bases, while the SA positions (CIGAR_analyze) do
+    read_len = read.infer_read_length()
+    if len(supps) > config.max_splits_base + config.max_splits_kb * (read_len / 1000.0):
         return
 
     if trace_read:
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] passed max_splits check")
 
-    if read.is_reverse:
-        qry_start = read.query_length - read.query_alignment_end
-    else:
-        qry_start = read.query_alignment_start
+    clip_start, clip_end = cigar_clips(read.cigartuples)
+    qry_start = clip_end if read.is_reverse else clip_start
 
     curr_lead = Lead(read_id,
                      read.query_name,

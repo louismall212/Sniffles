@@ -661,11 +661,19 @@ def split_ins_seq(read: 'AlignedSegment', qry_start: int, qry_end: int, strand: 
     seq = read.query_sequence
     if seq is None:
         return None
-    read_len = len(seq)
+    # Hard clipped bases are not stored in query_sequence: offset by the leading hard clip, and give up if the
+    # inserted sequence lies (partly) in a hard clipped part
+    cigar = read.cigartuples
+    hard_start = cigar[0][1] if cigar[0][0] == 5 else 0  # 5: BAM_CHARD_CLIP
+    hard_end = cigar[-1][1] if cigar[-1][0] == 5 else 0
+    read_len = len(seq) + hard_start + hard_end
     if read.is_reverse:
-        ins_seq = seq[read_len - qry_end:read_len - qry_start]
+        start, end = read_len - qry_end - hard_start, read_len - qry_start - hard_start
     else:
-        ins_seq = seq[qry_start:qry_end]
+        start, end = qry_start - hard_start, qry_end - hard_start
+    if start < 0 or end > len(seq) or start >= end:
+        return None
+    ins_seq = seq[start:end]
     if read.is_reverse != (strand == "-"):
         ins_seq = ins_seq.translate(_REVCOMP_TABLE)[::-1]
     return ins_seq
