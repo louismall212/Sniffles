@@ -9,6 +9,7 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
+import heapq
 import os
 
 from sniffles.config import SnifflesConfig
@@ -200,6 +201,7 @@ class CombineResultTmpFile(CombineResult):
                 self.unsorted = True
                 with open(self.tmpfile_unsorted, 'a') as f:
                     vcf = VCF(SnifflesConfig.GLOBAL, f)
+                    vcf.open_reference(generate_index=False)
                     for call in svcalls[:offset]:
                         vcf.write_call(call)
 
@@ -224,10 +226,22 @@ class CombineResultTmpFile(CombineResult):
         #     n += 1
         return 0
 
+    @staticmethod
+    def _vcf_pos(line: str) -> int:
+        return int(line.split('\t', 2)[1])
+
     def emit(self, vcf_out: VCF = None, **kwargs) -> int:
         n = 0
         with open(self.tmpfile_name, 'r') as f:
-            for line in f:
+            if self.unsorted and os.path.exists(self.tmpfile_unsorted):
+                # Calls that arrived after calls with a higher position were stored separately; the main file is
+                # sorted, so merge both by position (all calls of a task are on one contig)
+                with open(self.tmpfile_unsorted, 'r') as fu:
+                    unsorted_lines = sorted(fu, key=self._vcf_pos)
+                lines = heapq.merge(f, unsorted_lines, key=self._vcf_pos)
+            else:
+                lines = f
+            for line in lines:
                 vcf_out.handle.write(line)
                 n += 1
 
@@ -236,10 +250,11 @@ class CombineResultTmpFile(CombineResult):
         return n
 
     def cleanup(self):
-        try:
-            os.unlink(self.tmpfile_name)
-        except FileNotFoundError:
-            ...
+        for filename in (self.tmpfile_name, self.tmpfile_unsorted):
+            try:
+                os.unlink(filename)
+            except FileNotFoundError:
+                ...
 
 
 class CombineResultTmpFilePopulationSNF(CombineResultTmpFile):
