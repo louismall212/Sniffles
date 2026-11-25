@@ -434,7 +434,8 @@ class VCF:
 
     def rewrite_genotype(self, svcall):
         parts_no_gt = svcall.raw_vcf_line.split("\t")[:8]
-        gt_format = self.config.genotype_format
+        # includes :PS if phasing is on, matching what format_genotype writes
+        gt_format = self.genotype_format
         if svcall.genotype_match_sv != None:
             if len(svcall.genotype_match_sv.genotypes) > 0:
                 gt = svcall.genotype_match_sv.genotypes[0]
@@ -465,6 +466,7 @@ class VCF:
             "GQ": False,
             "DR": False,
             "DV": False,
+            "PS": not self.config.phase,  # only written with --phase
         }
         for header_line in header_lines:
             for gt in has_gt_headers.keys():
@@ -479,6 +481,8 @@ class VCF:
             header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
         if not has_gt_headers["DV"]:
             header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+        if not has_gt_headers["PS"]:
+            header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase-block, zero if none or not phased">')
 
         self.write_raw("\n".join(header_lines), endl="")
 
