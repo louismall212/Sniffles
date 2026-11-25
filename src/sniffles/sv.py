@@ -467,7 +467,8 @@ class SVGroup:
             svcall.set_info("STDEV_POS", util.stdev(cand.pos for cand in self.candidates))
             svcall.set_info("STDEV_LEN", util.stdev(cand.svlen for cand in self.candidates))
 
-        if abs(svcall.svlen) < config.minsvlen_screen:
+        # BNDs have no length (SVLEN 0 since 2.8.0), the length filter does not apply to them (as in qc_sv)
+        if svcall.svtype != "BND" and abs(svcall.svlen) < config.minsvlen_screen:
             return None
 
         task.sv_id += 1
