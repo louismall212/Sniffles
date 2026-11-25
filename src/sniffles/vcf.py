@@ -446,6 +446,14 @@ class VCF:
         # parts=parts_no_gt + [gt_format,vcf.format_genotype(gt)]
         # gt_vcf=svcall.raw_vcf_line.split("\t")[9].split(":")[0]
         # parts= parts_no_gt + [gt_vcf] + [gt_format,vcf.format_genotype(gt)]
+        if self.config.output_rnames:
+            # --output-rnames: names of the reads supporting the matching call in this sample (none if no match)
+            match = svcall.genotype_match_sv
+            rnames = match.rnames if match is not None and match.rnames else []
+            info = [kv for kv in parts_no_gt[7].split(";") if kv not in (".", "") and not kv.startswith("RNAMES=")]
+            if rnames:
+                info.append("RNAMES=" + ",".join(rnames))
+            parts_no_gt[7] = ";".join(info) if info else "."
         parts = parts_no_gt + [gt_format, format_genotype(gt, self.config.phase)]
         # parts[7]="NA"
         # parts[3]=f"REF_{len(parts[3])}"
@@ -474,6 +482,7 @@ class VCF:
             "DV": False,
             "PS": not self.config.phase,  # only written with --phase
         }
+        has_rnames_header = any(line.startswith("##INFO=<ID=RNAMES,") for line in header_lines)
         for header_line in header_lines:
             for gt in has_gt_headers.keys():
                 if "##FORMAT=<ID=" + gt + "," in header_line:
@@ -487,6 +496,8 @@ class VCF:
             header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
         if not has_gt_headers["DV"]:
             header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+        if self.config.output_rnames and not has_rnames_header:
+            header_lines.insert(len(header_lines)-2, '##INFO=<ID=RNAMES,Number=.,Type=String,Description="Names of supporting reads (if enabled with --output-rnames)">')
         if not has_gt_headers["PS"]:
             header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase-block, zero if none or not phased">')
 
