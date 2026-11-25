@@ -133,7 +133,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     if config.dev_progress_log:
         logging.getLogger('sniffles.progress').setLevel(logging.INFO)
 
-    if config.mode == "call_sample":
+    if config.mode == "call_sample" or config.mode == "genotype_vcf":
         if config.sample_id is None:
             # config.sample_id,_=os.path.splitext(os.path.basename(config.input))
             config.sample_ids_vcf = [(0, "SAMPLE")]

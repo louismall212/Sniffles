@@ -270,7 +270,7 @@ class SnifflesConfig(argparse.Namespace):
         genotype_args = parser.add_argument_group("SV Genotyping parameters")
         genotype_args.add_argument("--genotype-ploidy", metavar="N", type=int, help="Sample ploidy (currently fixed at value 2)", default=2)
         genotype_args.add_argument("--genotype-error", metavar="N", type=float, help="Estimated false positive rate for leads (relating to total coverage)", default=0.05)
-        genotype_args.add_argument("--sample-id", type=str, help="Custom ID for this sample, used for later multi-sample calling (stored in .snf)", default=None)
+        genotype_args.add_argument("--sample-id", type=str, help="Custom ID for this sample: the sample column name in the output VCF (default: SAMPLE), also used for later multi-sample calling (stored in .snf)", default=None)
         genotype_args.add_argument("--genotype-vcf", metavar="IN.vcf", type=str, help="Determine the genotypes for all SVs in the given input .vcf file (forced calling). Re-genotyped .vcf will be written to the output file specified with --vcf.", default=None)
 
     combine_high_confidence: float

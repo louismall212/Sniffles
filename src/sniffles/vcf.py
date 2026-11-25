@@ -454,6 +454,12 @@ class VCF:
 
     def rewrite_header_genotype(self, orig_header):
         header_lines = orig_header.split("\n")
+        # The output has one sample column (this sample), whatever the input VCF had
+        sample_name = self.config.sample_ids_vcf[0][1] if self.config.sample_ids_vcf else "SAMPLE"
+        for i, line in enumerate(header_lines):
+            if line.startswith("#CHROM"):
+                header_lines[i] = "\t".join(["#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT",
+                                             sample_name])
         header_lines.insert(1, '##genotypeFileDate="' + self.config.start_date + '"')
         header_lines.insert(1, '##genotypeCommand="' + self.config.command + '"')
         header_lines.insert(1, f"##genotypeSource={self.config.version}_{self.config.build}")
