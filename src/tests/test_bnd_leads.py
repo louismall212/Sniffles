@@ -120,6 +120,9 @@ class TestBNDLeadsGreen(BNDLeadTestCase):
 
     Truth:
     chr18   21493610        SV_136  T       [chr20:25499120[T
+
+    The alignments of these reads share one base at the junction, so the first aligned base on chr20 (and the
+    mate coordinate Sniffles reports) is 25499119; the reciprocal chr20 record then points back to chr18:21493610.
     """
     def _asserts(self, lead):
         print(lead)
@@ -127,7 +130,7 @@ class TestBNDLeadsGreen(BNDLeadTestCase):
         self.assertEqual(lead.contig, 'chr18')
         self.assertEqual(lead.ref_start, 21_493_610)
         self.assertEqual(lead.bnd_info.mate_contig, 'chr20')
-        self.assertEqual(lead.bnd_info.mate_ref_start, 25_499_120)
+        self.assertEqual(lead.bnd_info.mate_ref_start, 25_499_119)
         self.assertFalse(lead.bnd_info.is_first)
         self.assertFalse(lead.bnd_info.is_reverse)
 
