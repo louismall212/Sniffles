@@ -55,9 +55,12 @@ class Lead:
     read_len: int = 0
 
     @classmethod
-    def for_bnd(cls, read_id: int, read: pysam.AlignedSegment) -> Optional['Lead']:
+    def for_bnd(cls, read_id: int, read: pysam.AlignedSegment, min_mapq: int = 0) -> Optional['Lead']:
         """
         Generate a Lead based on the supplementary alignment (SA tag) of the given read.
+        :param min_mapq: minimum mapping quality of the SA alignment (the mate side). The record itself is filtered
+                         by the caller; without this, a BND would only be reported on the side of the record with
+                         the higher mapping quality.
         """
         # determine side of supplementary alignment
         # only works properly for a single SA
@@ -80,6 +83,9 @@ class Lead:
         for sa in read.get_tag("SA").split(";"):
             if len(sa) > 0:
                 refname, pos, strand, cigar, mapq, nm = sa.split(",")
+                if int(mapq) < min_mapq:
+                    return None
+
                 if read_strand == strand and refname == read.reference_name:
                     # same contig and strand: DEL/INS/DUP, handled by read_itersplits/classify_splits.
                     # Equal strands on different contigs are a translocation, which only this function reports.
@@ -558,7 +564,8 @@ class LeadProvider:
             # Extract read splits
             if has_sa:
                 # New version for BNDs:
-                if lead := Lead.for_bnd(curr_read_id, read):
+                if lead := Lead.for_bnd(curr_read_id, read,
+                                        min_mapq=0 if self.config.dev_keep_lowqual_splits else mapq_min):
                     yield lead
 
                 # Old version for everything else:
