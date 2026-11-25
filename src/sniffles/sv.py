@@ -646,6 +646,31 @@ def call_groups(svgroups: list[SVGroup], config, task):
             yield svcall
 
 
+_REVCOMP_TABLE = str.maketrans("ACGTNacgtn", "TGCANtgcan")
+
+
+def split_ins_seq(read: 'AlignedSegment', qry_start: int, qry_end: int, strand: str) -> Optional[str]:
+    """
+    Inserted sequence between two split alignments of a read, in the reference orientation of those alignments.
+
+    qry_start/qry_end are in original read (FASTQ) orientation, as used for split leads, while read.query_sequence is
+    in the reference orientation of the record that is processed (the primary alignment). For a reverse primary
+    alignment the coordinates have to be mirrored, and if the alignments flanking the insertion are on the other strand
+    than the primary alignment the sequence also has to be reverse complemented.
+    """
+    seq = read.query_sequence
+    if seq is None:
+        return None
+    read_len = len(seq)
+    if read.is_reverse:
+        ins_seq = seq[read_len - qry_end:read_len - qry_start]
+    else:
+        ins_seq = seq[qry_start:qry_end]
+    if read.is_reverse != (strand == "-"):
+        ins_seq = ins_seq.translate(_REVCOMP_TABLE)[::-1]
+    return ins_seq
+
+
 def classify_splits(read: 'AlignedSegment', leads: list['Lead'], config: 'SnifflesConfig', main_contig: str) -> list:
     """
     Determines the SV type of a split read (read with supplementary alignments). Returns (possibly changed) list of leads.
@@ -679,7 +704,7 @@ def classify_splits(read: 'AlignedSegment', leads: list['Lead'], config: 'Sniffl
                     svstart = curr.ref_start
                     svlen = (curr.qry_start - last.qry_end)
                     if svlen <= config.dev_seq_cache_maxlen:
-                        curr.seq = read.query_sequence[last.qry_end:curr.qry_start]
+                        curr.seq = split_ins_seq(read, last.qry_end, curr.qry_start, curr.strand)
                     else:
                         curr.seq = None
                     curr.svtypes_starts_lens.append(("INS", svstart, svlen))
@@ -691,7 +716,7 @@ def classify_splits(read: 'AlignedSegment', leads: list['Lead'], config: 'Sniffl
                     svstart = last.ref_start
                     svlen = (curr.qry_start - last.qry_end)
                     if svlen <= config.dev_seq_cache_maxlen:
-                        curr.seq = read.query_sequence[last.qry_end:curr.qry_start]
+                        curr.seq = split_ins_seq(read, last.qry_end, curr.qry_start, curr.strand)
                     else:
                         curr.seq = None
                     curr.svtypes_starts_lens.append(("INS", svstart, svlen))
