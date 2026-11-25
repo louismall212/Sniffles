@@ -54,8 +54,11 @@ class Cluster:
 
         step = int(len(self.leads) / n)
         if n > 1:
-            self.mean_svlen = sum(self.leads[i].svlen for i in range(0, len(self.leads), step)) / float(n)
-            self.stdev_start = statistics.stdev(self.leads[i].ref_start for i in range(0, len(self.leads), step))
+            # with more than max_n leads every step-th lead is used; this can be more than max_n leads
+            # (e.g. 125 of 250), so divide by the number of leads actually sampled
+            sampled = self.leads[::step]
+            self.mean_svlen = sum(ld.svlen for ld in sampled) / float(len(sampled))
+            self.stdev_start = statistics.stdev(ld.ref_start for ld in sampled)
         else:
             self.mean_svlen = self.leads[0].svlen
             self.stdev_start = 0
