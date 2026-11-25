@@ -338,6 +338,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
         contig_lengths = []
         contigs_with_tr_annotations = 0
+        skipped_short_contigs = []  # (name, mapped reads) of contigs < 1 Mb skipped by default
         for contig in bam_in.get_index_statistics():
             if task_max_reads == 0:
                 task_count = 1
@@ -347,6 +348,9 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
             contig_length = bam_in.get_reference_length(contig_str)
             if not util.should_process_contig(contig_str, contig_length, config):
+                if (not config.all_contigs and contig_length < 1_000_000 and contig.mapped > 0
+                        and not config.contig and not config.regions_by_contig):
+                    skipped_short_contigs.append((contig_str, contig.mapped))
                 continue
 
             contigs.append(contig_str)
@@ -385,6 +389,18 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                 startpos += task_length
                 task_id += 1
         config.contig_lengths = contig_lengths
+
+        if skipped_short_contigs:
+            skipped_reads = sum(mapped for _, mapped in skipped_short_contigs)
+            names = ", ".join(name for name, _ in skipped_short_contigs[:5])
+            names += ", ..." if len(skipped_short_contigs) > 5 else ""
+            msg = (f"Skipped {len(skipped_short_contigs)} contig(s) shorter than 1 Mb with {skipped_reads} mapped "
+                   f"reads ({names}). Use --all-contigs (or --contig) to analyze them.")
+            # loud if this is a large part of the data (e.g. small genomes), otherwise (e.g. decoys) informational
+            if not contig_lengths or skipped_reads >= 0.1 * max(1, total_mapped):
+                log.warning(msg)
+            else:
+                log.info(msg)
 
         if contigs_with_tr_annotations < len(contig_lengths) and config.tandem_repeats != None:
             log.info(f"Info: {contigs_with_tr_annotations} of {len(contig_lengths)} contigs in the input sample have "
