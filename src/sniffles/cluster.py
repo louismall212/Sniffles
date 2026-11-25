@@ -304,7 +304,9 @@ def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, No
             curr_cluster.end = next_cluster.end
             curr_cluster.repeat = curr_cluster.repeat or next_cluster.repeat
             curr_cluster.compute_metrics()
-            i = max(0, i - 2)
+            # step back one cluster (i - 2 + 1), so that the previous cluster is compared with the grown one; for
+            # i = 0 stay at 0, so the grown first cluster is compared with its new neighbour
+            i = max(-1, i - 2)
         i += 1
 
     if config.dev_trace_read:
